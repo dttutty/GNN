@@ -15,6 +15,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import plotly.graph_objects as go
 import plotly.express as px
+import matplotlib
 import matplotlib.pyplot as plt
 import torchvision
 from torchvision import datasets, models, transforms
@@ -25,10 +26,15 @@ from tqdm.notebook import tqdm
 from tqdm import trange
 
 
+matplotlib.use('Qt5Agg')  # 或 'TkAgg'
+plt.ion()  # 启用交互模式
+
+
 # The karate dataset is built-in in networkx
 import networkx as nx
 
 G = nx.karate_club_graph()
+#Ignore Weigh
 
 # Known ids of the instructor, admin and members
 ID_INSTR = 0    
@@ -39,59 +45,77 @@ print(f'{G.name}: {len(G.nodes)} vertices, {len(G.edges)} edges')
 # Input featuers (no information on nodes):
 X = torch.eye(G.number_of_nodes())
 
+    
 # Create ground-truth labels
 # - Assign the label "0" to the "Mr. Hi" community
 # - Assign the label "1" to the "Officer" community
 labels = [int(not d['club']=='Mr. Hi') for _, d in G.nodes().data()]
 labels = torch.tensor(labels, dtype=torch.long)
-
 # Let's check the nodes metadata
 for (node_id, node_data), label_id in zip(G.nodes().data(), labels):
     print(f'Node id: {node_id},\tClub: {node_data["club"]},\t\tLabel: {label_id.item()}')
     
     # Adjacency matrix, binary
 # A = nx.adj_matrix(G, weight=None)
-A_sparse = nx.adjacency_matrix(G)
+# convert G to adjacency matrix
+G_adj = nx.adjacency_matrix(G)
+A_sparse = nx.adjacency_matrix(G, weight=None)
 A = A_sparse.toarray()
 # A = np.array(A.todense())
-
 # Degree matrix
-dii = np.sum(A, axis=1, keepdims=False)  # sum the columns of the adj
-D = np.diag(dii)
-
+# count  non-zero elements in each row
+non_zero = np.count_nonzero(A, axis=1)
+D = np.diag(non_zero)
+# dii = np.sum(A, axis=1, keepdims=False)  # sum the columns of theadj
+# D = np.diag(dii)
 # Laplacian
 L = D - A
 
-# Symmetric
-(L.transpose() == L).all()
 
-# Sum of degrees
-np.trace(L) == 2 * G.number_of_edges()
+def test_graph():
+    # Symmetric
+    (L.transpose() == L).all()
 
-# Sum of colums/rows is zero
-print(np.sum(L, axis=1))
-print(np.sum(L, axis=0))
+    # Sum of degrees
+    np.trace(L) == 2 * G.number_of_edges()
 
-# Compute the eigevanlues and eigenvector
-w, Phi = np.linalg.eigh(L)
+    # Sum of colums/rows is zero
+    print(np.sum(L, axis=1))
+    print(np.sum(L, axis=0))
 
-plt.plot(w)
-plt.xlabel(r'$\lambda$'); plt.title('Spectrum')
+    # Compute the eigevanlues and eigenvector
+    w, Phi = np.linalg.eigh(L)
+
+    plt.plot(w)
+    plt.xlabel(r'$\lambda$')
+    plt.title('Spectrum')
 
 
-# Adjacency matrix
-A = nx.adjacency_matrix(G, weight=None)
-A = np.array(A.todense())
-I = np.eye(A.shape[0])
-A = A + I
+    #@title visualization 
 
-# Degree matrix (only the diagonal)
-dii = np.sum(A, axis=1, keepdims=False)
-#D = np.diag(dii)
+    # Plot Fourier basis傅里叶基，还是不懂
+    pos = nx.spring_layout(G)
+    fig, ax = plt.subplots(4, 4, figsize=(8,6), dpi=150)
+    ax = ax.reshape(-1)
+    vmin, vmax = np.min(Phi), np.max(Phi)
+    for i in range(len(ax)):
+        nc = Phi[:,i]
+        nx.draw_networkx(G, pos, node_color=nc, with_labels=False, node_size=15, ax=ax[i], width=0.25, cmap=plt.cm.magma, vmin=vmin, vmax=vmax)
+        ax[i].axis('off')
+        ax[i].set_title(rf'$\lambda_{{{i}}}={w[i]:.2f}$',fontdict=dict(fontsize=8))
 
-# Normalized Laplacian
-D_inv_h = np.diag(dii**(-0.5))
-L =  D_inv_h @ A @ D_inv_h
+    # Adjacency matrix
+
+    I = np.eye(A.shape[0])
+    A = A + I
+
+    # Degree matrix (only the diagonal)
+    dii = np.sum(A, axis=1, keepdims=False)
+    #D = np.diag(dii)
+
+    # Normalized Laplacian
+    D_inv_h = np.diag(dii**(-0.5)) #size: n*n
+    L =  D_inv_h @ A @ D_inv_h #size: n*n
 
 
 import torch.nn as nn
