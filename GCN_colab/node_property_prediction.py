@@ -84,3 +84,11 @@ if 'IS_GRADESCOPE_ENV' not in os.environ:
           f'Train: {100 * train_acc:.2f}%, '
           f'Valid: {100 * valid_acc:.2f}% '
           f'Test: {100 * test_acc:.2f}%')
+
+
+best_result = test(best_model, data, split_idx, evaluator, save_model_results=True)
+train_acc, valid_acc, test_acc = best_result
+print(f'Best model: '
+      f'Train: {100 * train_acc:.2f}%, '
+      f'Valid: {100 * valid_acc:.2f}% '
+      f'Test: {100 * test_acc:.2f}%')

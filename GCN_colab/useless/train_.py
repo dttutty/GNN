@@ -24,7 +24,7 @@ import os
 import pickle
 from tqdm.notebook import tqdm
 from tqdm import trange
-from GCNLayer import GCNLayer
+from GCN_colab.useless.GCNLayer import GCNLayer
 
 matplotlib.use('Qt5Agg')  # 或 'TkAgg'
 plt.ion()  # 启用交互模式

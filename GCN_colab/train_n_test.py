@@ -1,4 +1,7 @@
 
+import pandas as pd
+import torch
+
 def train(model, data, train_idx, optimizer, loss_fn):
     model.train()
     loss = 0
@@ -14,6 +17,7 @@ def train(model, data, train_idx, optimizer, loss_fn):
     optimizer.step()
     return loss.item()
 
+@torch.no_grad()
 def test(model, data, split_idx, evaluator, save_model_result=False):
     
     model.eval()
