@@ -24,7 +24,7 @@ import os
 import pickle
 from tqdm.notebook import tqdm
 from tqdm import trange
-
+from GCNLayer import GCNLayer
 
 matplotlib.use('Qt5Agg')  # 或 'TkAgg'
 plt.ion()  # 启用交互模式
@@ -121,71 +121,22 @@ def test_graph():
 import torch.nn as nn
 from typing import List
 
-class GCNLayer(nn.Module):
-    def __init__(self, 
-                 graph_L: torch.Tensor, 
-                 in_features: int, 
-                 out_features: int, 
-                 max_deg: int = 1
-        ):
-        """
-        :param graph_L: the normalized graph laplacian. It is all the information we need to know about the graph
-        :param in_features: the number of input features for each node
-        :param out_features: the number of output features for each node
-        :param max_deg: how many power of the laplacian to consider, i.e. the q in the spacial formula
-        """
-        super().__init__()
-        
-        # Each FC is like the alpha_k matrix, with the last one including bias
-        self.fc_layers = nn.ModuleList()
-        for i in range(max_deg - 1):
-            self.fc_layers.append(nn.Linear(in_features, out_features, bias=False))     # q - 1 layers without bias
-        self.fc_layers.append(nn.Linear(in_features, out_features, bias=True))          # last one with bias
-        
-        # Pre-calculate beta_k(L) for every key
-        self.laplacians = self.calc_laplacian_functions(graph_L, max_deg)
-        
-    def calc_laplacian_functions(self, 
-                                 L: torch.Tensor, 
-                                 max_deg: int
-        ) -> List[torch.Tensor]:
-        """
-        Compute all the powers of L from 1 to max_deg
 
-        :param L: a square matrix
-        :param max_deg: number of powers to compute
-
-        :returns: a list of tensors, where the element i is L^{i+1} (i.e. start counting from 1)
-        """
-        res = [L]
-        for _ in range(max_deg-1):
-            res.append(torch.mm(res[-1], L))
-        return res
-        
-    def forward(self, X: torch.Tensor) -> torch.Tensor:
-        """
-        Perform one forward step of graph convolution
-
-        :params X: input features maps [vertices, in_features]
-        :returns: output features maps [vertices, out_features]
-        """
-        Z = torch.tensor(0.)
-        for k, fc in enumerate(self.fc_layers):
-            L = self.laplacians[k]
-            LX = torch.mm(L, X)
-            Z = fc(LX) + Z
-        
-        return torch.relu(Z)
     
 in_features, out_features = X.shape[1], 2
 graph_L = torch.tensor(L, dtype=torch.float)
 max_deg = 2
 hidden_dim = 5
 
+from torch_geometric.nn import GCNConv
+
 # Stack two GCN layers as our model
 gcn2 = nn.Sequential(
-    GCNLayer(graph_L, in_features, hidden_dim, max_deg),
-    GCNLayer(graph_L, hidden_dim, out_features, max_deg),
+    GCNConv(in_features, hidden_dim),
+    GCNConv(hidden_dim, out_features),
+    
+    # GCNLayer(graph_L, in_features, hidden_dim, max_deg),
+    # GCNLayer(graph_L, hidden_dim, out_features, max_deg),
     nn.LogSoftmax(dim=1)
 )
 gcn2
@@ -193,10 +144,10 @@ gcn2
 import torch.nn.functional as F
 import torch.optim
 
-def train_node_classifier(model, optimizer, X, y, epochs=60, print_every=10):
+def train_node_classifier(model, optimizer, X, y, epochs=300):
     y_pred_epochs = []
     for epoch in range(epochs+1):
-        y_pred = model(X)  # Compute on all the graph
+        y_pred = model(X, )  # Compute on all the graph
         y_pred_epochs.append(y_pred.detach())
 
         # Semi-supervised: only use labels of the Instructor and Admin nodes
@@ -207,12 +158,18 @@ def train_node_classifier(model, optimizer, X, y, epochs=60, print_every=10):
         loss.backward()
         optimizer.step()
 
-        if epoch % print_every == 0:
+        if epoch % 10 == 0:
             print(f'Epoch {epoch:2d}, loss={loss.item():.5f}')
     return y_pred_epochs
+
+optimizer = torch.optim.Adam(gcn2.parameters(), lr=0.01)
+
+y_pred_epochs = train_node_classifier(gcn2, optimizer, X, labels)
+
 
 from sklearn.metrics import classification_report
 
 y_pred = torch.argmax(gcn2(X), dim=1).detach().numpy()
 y = labels.numpy()
 print(classification_report(y, y_pred, target_names=['I','A']))
+print('byebye')
