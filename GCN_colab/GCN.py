@@ -13,8 +13,8 @@ class GCN(torch.nn.Module):
         self.convs = torch.nn.ModuleList()
         self.convs.append(nn.GCNConv(in_dim, hidden_dim))
         for i in range(num_layers-2):
-                self.convs.append(nn.GCNConv(hidden_dim, out_dim))
-        self.convs.append(nn.GCNConv(hidden_dim, hidden_dim))
+                self.convs.append(nn.GCNConv(hidden_dim, hidden_dim))
+        self.convs.append(nn.GCNConv(hidden_dim, out_dim))
         
         self.bns = torch.nn.ModuleList()
         for i in range(num_layers-1):
@@ -33,13 +33,13 @@ class GCN(torch.nn.Module):
     def forward(self, x, adj_t):
         out = None
         
-        for i, conv in enumerate(self.convs-1):
-            x = self.convs[i](x)
+        for i in range(len(self.convs)-1):
+            x = self.convs[i](x, adj_t)
             x = self.bns[i](x)
-            x = nn.functional.relu(x)
-            x = x.dropout(x, p=self.dropout, training=self.training)
-        x=self.convs[-1](x)
-        out = nn.functional.log_softmax(x, dim=1)
+            x = torch.nn.functional.relu(x)
+            x = torch.nn.functional.dropout(x, p=self.dropout, training=self.training)
+        x=self.convs[-1](x, adj_t)
+        out = torch.nn.functional.log_softmax(x, dim=1)
         
         return out
         
