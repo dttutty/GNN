@@ -51,7 +51,6 @@ class GCN_Graph(torch.nn.Module):
         x, edge_index, batch = batched_data.x, batched_data.edge_index, batched_data.batch
         embed = self.node_encoder(x)
 
-        out = None
 
         ############# Your code here ############
         ## Note:

@@ -11,15 +11,14 @@ from torch_geometric.nn import GCNConv
 
 import torch_geometric.transforms as T
 from ogb.nodeproppred import PygNodePropPredDataset, Evaluator
-
+import matplotlib.pyplot as plt
 from train_n_test import train, test
 
 # Please do not change the args
 
 
 
-dataset_name = 'ogbn-arxiv'
-dataset = PygNodePropPredDataset(name=dataset_name, root='Datasets/ogbn-arxiv')
+dataset = PygNodePropPredDataset(name='ogbn-arxiv', root='Datasets/ogbn-arxiv')
 
 # Extract the graph
 data = dataset[0]
@@ -35,8 +34,6 @@ adj_t = torch.sparse_coo_tensor(edge_index, torch.ones(edge_index.shape[1]), (nu
 # data.adj_t = data.adj_t.to_symmetric()
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# If you use GPU, the device should be cuda
-print('Device: {}'.format(device))
 
 data = data.to(device)
 split_idx = dataset.get_idx_split()
@@ -50,7 +47,7 @@ args = {
     'hidden_dim': 256,
     'dropout': 0.5,
     'lr': 0.01,
-    'epochs': 100,
+    'epochs': 1000,
 }
 
 
@@ -62,31 +59,43 @@ evaluator = Evaluator(name='ogbn-arxiv')
 # Please do not change these args
 # Training should take <10min using GPU runtime
 import copy
-if 'IS_GRADESCOPE_ENV' not in os.environ:
-  # reset the parameters to initial random value
-  model.reset_parameters()
+# reset the parameters to initial random value
+model.reset_parameters()
 
-  optimizer = torch.optim.Adam(model.parameters(), lr=args['lr'])
-  loss_fn = F.nll_loss
+optimizer = torch.optim.Adam(model.parameters(), lr=args['lr'])
+loss_fn = F.nll_loss
 
-  best_model = None
-  best_valid_acc = 0
-
-  for epoch in range(1, 1 + args["epochs"]):
+best_model = None
+best_valid_acc = 0
+losses = []
+test_acces = []
+for epoch in range(1, 1 + args["epochs"]):
     loss = train(model, data, train_idx, optimizer, loss_fn)
     result = test(model, data, split_idx, evaluator)
     train_acc, valid_acc, test_acc = result
+    losses.append(loss)
+    test_acces.append(test_acc)
     if valid_acc > best_valid_acc:
         best_valid_acc = valid_acc
         best_model = copy.deepcopy(model)
     print(f'Epoch: {epoch:02d}, '
-          f'Loss: {loss:.4f}, '
-          f'Train: {100 * train_acc:.2f}%, '
-          f'Valid: {100 * valid_acc:.2f}% '
-          f'Test: {100 * test_acc:.2f}%')
+        f'Loss: {loss:.4f}, '
+        f'Train: {100 * train_acc:.2f}%, '
+        f'Valid: {100 * valid_acc:.2f}% '
+        f'Test: {100 * test_acc:.2f}%')
+    
+plt.figure()
+plt.plot(range(1, 1 + args["epochs"]), losses, label="Train Loss")
+plt.plot(range(1, 1 + args["epochs"]), test_acces, label="Test Accuracy")
+plt.xlabel("Epochs")
+plt.ylabel("Loss")
+plt.title("Loss Curve")
+plt.legend()
+plt.show()
 
 
-best_result = test(best_model, data, split_idx, evaluator, save_model_results=True)
+
+best_result = test(best_model, data, split_idx, evaluator, save_model_result=True)
 train_acc, valid_acc, test_acc = best_result
 print(f'Best model: '
       f'Train: {100 * train_acc:.2f}%, '
