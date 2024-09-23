@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from typing import List
 from torch_geometric import nn
+from gcn_conv import GCNConv
 class GCN(torch.nn.Module):
     def __init__(self, in_dim, hidden_dim, out_dim, num_layers, dropout, return_embeds=False):
         super(GCN, self).__init__()
@@ -11,10 +12,10 @@ class GCN(torch.nn.Module):
         self.softmax = None
         
         self.convs = torch.nn.ModuleList()
-        self.convs.append(nn.GCNConv(in_dim, hidden_dim))
+        self.convs.append(GCNConv(in_dim, hidden_dim))
         for i in range(num_layers-2):
-                self.convs.append(nn.GCNConv(hidden_dim, hidden_dim))
-        self.convs.append(nn.GCNConv(hidden_dim, out_dim))
+                self.convs.append(GCNConv(hidden_dim, hidden_dim))
+        self.convs.append(GCNConv(hidden_dim, out_dim))
         
         self.bns = torch.nn.ModuleList()
         for i in range(num_layers-1):

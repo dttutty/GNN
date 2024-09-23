@@ -2,8 +2,13 @@
 
 
 import os
+
+import os
+os.environ['PYTORCH_JIT'] = '0'
+
 import pandas as pd
 import torch
+
 import torch.nn.functional as F
 print(torch.__version__)
 # The PyG built-in GCNConv
